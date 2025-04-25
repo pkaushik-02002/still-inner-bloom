@@ -3,10 +3,17 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Music } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { db } from "@/lib/firebase";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { toast } from "sonner";
 
 export function JournalEntry() {
   const [content, setContent] = useState("");
   const [mood, setMood] = useState<string | null>(null);
+  const [musicLink, setMusicLink] = useState<{ title: string; artist: string } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { currentUser } = useAuth();
   
   const moods = [
     { id: "peaceful", label: "Peaceful", color: "bg-still-sky" },
@@ -16,12 +23,47 @@ export function JournalEntry() {
     { id: "challenged", label: "Challenged", color: "bg-still-clay" }
   ];
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would save to Firebase
-    alert("Journal entry saved!");
-    setContent("");
-    setMood(null);
+
+    if (!currentUser) {
+      toast.error("Please sign in to save journal entries");
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      const journalData = {
+        content,
+        mood,
+        date: serverTimestamp(),
+        userId: currentUser.uid,
+        ...(musicLink ? { musicLink } : {})
+      };
+      
+      await addDoc(collection(db, "journal_entries"), journalData);
+      toast.success("Journal entry saved successfully!");
+      
+      // Clear the form
+      setContent("");
+      setMood(null);
+      setMusicLink(null);
+    } catch (error) {
+      console.error("Error saving journal entry:", error);
+      toast.error("Failed to save journal entry. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Music link functionality (simplified for now)
+  const addMusicLink = () => {
+    setMusicLink({
+      title: "Meditation Track",
+      artist: "Still Music"
+    });
+    toast.info("Music memory linked!");
   };
   
   return (
@@ -66,18 +108,19 @@ export function JournalEntry() {
         <Button
           type="button"
           variant="outline"
-          className="flex items-center gap-2"
+          className={`flex items-center gap-2 ${musicLink ? 'bg-still-lavender/20' : ''}`}
+          onClick={addMusicLink}
         >
           <Music className="h-4 w-4" />
-          Link music memory
+          {musicLink ? "Music memory linked" : "Link music memory"}
         </Button>
         
         <Button 
           type="submit"
-          disabled={!content || !mood}
+          disabled={!content || !mood || isSubmitting}
           className="ml-auto"
         >
-          Save Entry
+          {isSubmitting ? "Saving..." : "Save Entry"}
         </Button>
       </div>
     </form>

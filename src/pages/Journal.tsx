@@ -1,13 +1,17 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { JournalEntry } from "@/components/JournalEntry";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/context/AuthContext";
+import { collection, query, where, orderBy, getDocs, Timestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 interface JournalEntryType {
   id: string;
-  date: Date;
+  date: Timestamp;
   content: string;
   mood: string;
   musicLink?: {
@@ -16,40 +20,47 @@ interface JournalEntryType {
   };
 }
 
-// Sample journal entries
-const sampleEntries: JournalEntryType[] = [
-  {
-    id: "entry1",
-    date: new Date(2025, 3, 24), // April 24, 2025
-    content: "Today I took a moment to really listen to the birds outside my window. It's amazing how much we miss when we're caught up in our thoughts.",
-    mood: "peaceful",
-    musicLink: {
-      title: "Forest Morning",
-      artist: "Earth Tones"
-    }
-  },
-  {
-    id: "entry2",
-    date: new Date(2025, 3, 22), // April 22, 2025
-    content: "I'm feeling grateful for the small moments of connection today. A smile from a stranger, a text from an old friend - these little things matter.",
-    mood: "grateful"
-  },
-  {
-    id: "entry3",
-    date: new Date(2025, 3, 20), // April 20, 2025
-    content: "Challenging day at work, but I managed to take a few deep breaths before responding to a difficult situation. Small progress.",
-    mood: "reflective",
-    musicLink: {
-      title: "Inner Light",
-      artist: "Crystal Bowls"
-    }
-  }
-];
-
 const Journal = () => {
-  const [entries, setEntries] = useState<JournalEntryType[]>(sampleEntries);
+  const [entries, setEntries] = useState<JournalEntryType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { currentUser } = useAuth();
   
-  const formatDate = (date: Date): string => {
+  // Fetch journal entries when component mounts or user changes
+  useEffect(() => {
+    const fetchEntries = async () => {
+      if (!currentUser) {
+        setEntries([]);
+        setLoading(false);
+        return;
+      }
+      
+      setLoading(true);
+      try {
+        const q = query(
+          collection(db, "journal_entries"),
+          where("userId", "==", currentUser.uid),
+          orderBy("date", "desc")
+        );
+        
+        const querySnapshot = await getDocs(q);
+        const entriesData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as JournalEntryType[];
+        
+        setEntries(entriesData);
+      } catch (error) {
+        console.error("Error fetching journal entries:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchEntries();
+  }, [currentUser]);
+  
+  const formatDate = (timestamp: Timestamp): string => {
+    const date = timestamp.toDate();
     return date.toLocaleDateString('en-US', { 
       weekday: 'long', 
       month: 'long', 
@@ -92,7 +103,23 @@ const Journal = () => {
             
             <TabsContent value="history">
               <div className="space-y-6">
-                {entries.length > 0 ? (
+                {loading ? (
+                  // Show skeletons while loading
+                  Array(3).fill(0).map((_, i) => (
+                    <Card key={i} className="still-card">
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <Skeleton className="h-5 w-48" />
+                          <Skeleton className="h-5 w-24 rounded-full" />
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-4 w-full mb-2" />
+                        <Skeleton className="h-4 w-3/4" />
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : entries.length > 0 ? (
                   entries.map((entry) => (
                     <Card key={entry.id} className="still-card">
                       <CardHeader>
@@ -115,7 +142,7 @@ const Journal = () => {
                   ))
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
-                    Your journal is empty. Start by creating a new entry.
+                    {currentUser ? "Your journal is empty. Start by creating a new entry." : "Please sign in to view your journal entries."}
                   </div>
                 )}
               </div>

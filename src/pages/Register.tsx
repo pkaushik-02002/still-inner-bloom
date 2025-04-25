@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth, db } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
 
 const Register = () => {
   const [name, setName] = useState("");
@@ -17,11 +18,19 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (currentUser) {
+      navigate("/");
+    }
+  }, [currentUser, navigate]);
   
   const createUserProfile = async (userId: string, userData: { name: string, email: string }) => {
     await setDoc(doc(db, "users", userId), {
       ...userData,
-      createdAt: new Date(),
+      createdAt: serverTimestamp(),
       garden: [],
       completedMissions: [],
     });
@@ -29,6 +38,12 @@ const Register = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters long");
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
@@ -36,8 +51,18 @@ const Register = () => {
       await createUserProfile(user.uid, { name, email });
       toast.success("Account created successfully!");
       navigate("/");
-    } catch (error) {
-      toast.error("Failed to create account. Please try again.");
+    } catch (error: any) {
+      let errorMessage = "Failed to create account. Please try again.";
+      
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "This email is already in use. Try logging in instead.";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "Invalid email address.";
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = "Password is too weak. Choose a stronger password.";
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -47,10 +72,15 @@ const Register = () => {
     const provider = new GoogleAuthProvider();
     try {
       const { user } = await signInWithPopup(auth, provider);
+      
+      // Check if this is a new user
+      const displayName = user.displayName || "User";
+      
       await createUserProfile(user.uid, { 
-        name: user.displayName || "User", 
+        name: displayName, 
         email: user.email || "" 
       });
+      
       toast.success("Successfully signed up with Google!");
       navigate("/");
     } catch (error) {

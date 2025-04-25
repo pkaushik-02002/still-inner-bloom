@@ -1,20 +1,30 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { toast } from "sonner";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useAuth } from "@/context/AuthContext";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (currentUser) {
+      navigate("/");
+    }
+  }, [currentUser, navigate]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,8 +34,18 @@ const Login = () => {
       await signInWithEmailAndPassword(auth, email, password);
       toast.success("Successfully signed in!");
       navigate("/");
-    } catch (error) {
-      toast.error("Failed to sign in. Please check your credentials.");
+    } catch (error: any) {
+      let errorMessage = "Failed to sign in. Please check your credentials.";
+      
+      if (error.code === 'auth/invalid-credential') {
+        errorMessage = "Invalid email or password. Please try again.";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "Invalid email format.";
+      } else if (error.code === 'auth/user-not-found') {
+        errorMessage = "No account found with this email.";
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -34,7 +54,24 @@ const Login = () => {
   const handleGoogleSignIn = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      const { user } = await signInWithPopup(auth, provider);
+      
+      // Check if the user exists in Firestore
+      const userRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(userRef);
+      
+      // If the user doesn't exist, create a profile
+      if (!docSnap.exists()) {
+        const displayName = user.displayName || "User";
+        await setDoc(userRef, {
+          name: displayName,
+          email: user.email || "",
+          createdAt: serverTimestamp(),
+          garden: [],
+          completedMissions: [],
+        });
+      }
+      
       toast.success("Successfully signed in with Google!");
       navigate("/");
     } catch (error) {
