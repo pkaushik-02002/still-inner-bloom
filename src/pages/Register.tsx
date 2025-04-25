@@ -1,27 +1,61 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { auth, db } from "@/lib/firebase";
+import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { toast } from "sonner";
 
 const Register = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
   
+  const createUserProfile = async (userId: string, userData: { name: string, email: string }) => {
+    await setDoc(doc(db, "users", userId), {
+      ...userData,
+      createdAt: new Date(),
+      garden: [],
+      completedMissions: [],
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // In a real app, this would connect to Firebase Authentication
-    setTimeout(() => {
-      alert("This would connect to Firebase in the complete app!");
+    try {
+      const { user } = await createUserWithEmailAndPassword(auth, email, password);
+      await createUserProfile(user.uid, { name, email });
+      toast.success("Account created successfully!");
+      navigate("/");
+    } catch (error) {
+      toast.error("Failed to create account. Please try again.");
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      const { user } = await signInWithPopup(auth, provider);
+      await createUserProfile(user.uid, { 
+        name: user.displayName || "User", 
+        email: user.email || "" 
+      });
+      toast.success("Successfully signed up with Google!");
+      navigate("/");
+    } catch (error) {
+      toast.error("Failed to sign up with Google.");
+    }
   };
   
   return (
@@ -35,7 +69,7 @@ const Register = () => {
                 Begin your journey to inner peace and mindfulness
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Name</Label>
@@ -76,6 +110,26 @@ const Register = () => {
                   {isLoading ? "Creating account..." : "Create Account"}
                 </Button>
               </form>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Or continue with
+                  </span>
+                </div>
+              </div>
+
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full"
+                onClick={handleGoogleSignIn}
+              >
+                Sign up with Google
+              </Button>
             </CardContent>
             <CardFooter className="justify-center">
               <p className="text-sm text-muted-foreground">
