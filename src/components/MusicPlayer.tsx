@@ -1,16 +1,9 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Play, Pause, SkipForward, SkipBack, Volume2 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
-
-interface Track {
-  id: string;
-  title: string;
-  artist: string;
-  coverImage: string;
-  duration: string;
-}
+import { Track } from "@/data/tracks";
+import { toast } from "@/components/ui/sonner";
 
 interface MusicPlayerProps {
   tracks: Track[];
@@ -24,9 +17,18 @@ export function MusicPlayer({ tracks, mood = "calm" }: MusicPlayerProps) {
   const [volume, setVolume] = useState(80);
   
   const currentTrack = tracks[currentTrackIndex];
-  
+
+  useEffect(() => {
+    // Reset player state when tracks change
+    setCurrentTrackIndex(0);
+    setProgress(0);
+    setIsPlaying(false);
+  }, [tracks]);
+
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
+    // In a real implementation, this would trigger the actual audio playback
+    toast.info("Note: This is a demo player. Audio playback is not implemented.");
   };
   
   const nextTrack = () => {
@@ -56,11 +58,11 @@ export function MusicPlayer({ tracks, mood = "calm" }: MusicPlayerProps) {
       <div className="flex flex-col items-center">
         <div 
           className="h-48 w-48 rounded-lg bg-cover bg-center mb-6 shadow-md"
-          style={{ backgroundImage: `url(${currentTrack.coverImage || "/placeholder.svg"})` }}
+          style={{ backgroundImage: `url(${currentTrack?.coverImage || "/placeholder.svg"})` }}
         />
         
-        <h3 className="text-xl font-medium">{currentTrack.title}</h3>
-        <p className="text-muted-foreground">{currentTrack.artist}</p>
+        <h3 className="text-xl font-medium">{currentTrack?.title}</h3>
+        <p className="text-muted-foreground">{currentTrack?.artist}</p>
         
         <div className="w-full mt-6 mb-4">
           <Slider 
@@ -72,7 +74,7 @@ export function MusicPlayer({ tracks, mood = "calm" }: MusicPlayerProps) {
           />
           <div className="flex justify-between text-xs text-muted-foreground mt-1">
             <span>{formatTime(progress)}</span>
-            <span>{currentTrack.duration}</span>
+            <span>{currentTrack?.duration}</span>
           </div>
         </div>
         

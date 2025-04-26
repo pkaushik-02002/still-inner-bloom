@@ -1,13 +1,32 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { MoodSelector } from "@/components/MoodSelector";
 import { MusicPlayer } from "@/components/MusicPlayer";
-import { tracksByMood } from "@/data/tracks";
+import { getTracksByMood } from "@/services/musicService";
+import { Track } from "@/data/tracks";
+import { toast } from "@/components/ui/sonner";
 
 const Player = () => {
   const [currentMood, setCurrentMood] = useState("calm");
-  const currentTracks = tracksByMood[currentMood] || [];
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    const fetchTracks = async () => {
+      try {
+        setIsLoading(true);
+        const fetchedTracks = await getTracksByMood(currentMood);
+        setTracks(fetchedTracks);
+      } catch (error) {
+        console.error('Error fetching tracks:', error);
+        toast.error("Could not load music tracks. Please try again later.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchTracks();
+  }, [currentMood]);
   
   const handleMoodSelect = (mood: string) => {
     setCurrentMood(mood);
@@ -29,7 +48,11 @@ const Player = () => {
           </div>
           
           <div className="flex justify-center">
-            <MusicPlayer tracks={currentTracks} mood={currentMood} />
+            {isLoading ? (
+              <div className="animate-pulse">Loading tracks...</div>
+            ) : (
+              <MusicPlayer tracks={tracks} mood={currentMood} />
+            )}
           </div>
           
           <div className="mt-16">
