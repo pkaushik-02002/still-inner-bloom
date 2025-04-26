@@ -41,6 +41,36 @@ export function MoodSelector({ onSelect }: { onSelect: (mood: string) => void })
       label: "Forgiveness", 
       color: "bg-still-clay",
       description: "Reflective melodies to release and let go."
+    },
+    { 
+      id: "energy", 
+      label: "Energy", 
+      color: "bg-still-sky",
+      description: "Dynamic rhythms to boost vitality and motivation."
+    },
+    { 
+      id: "focus", 
+      label: "Focus", 
+      color: "bg-still-sage",
+      description: "Consistent sounds for concentration and productivity."
+    },
+    { 
+      id: "joy", 
+      label: "Joy", 
+      color: "bg-still-lavender",
+      description: "Uplifting melodies to celebrate happiness."
+    },
+    { 
+      id: "motivation", 
+      label: "Motivation", 
+      color: "bg-still-peach",
+      description: "Powerful progressions to inspire action."
+    },
+    { 
+      id: "reflection", 
+      label: "Reflection", 
+      color: "bg-still-clay",
+      description: "Thoughtful compositions for introspection."
     }
   ];
   

@@ -1,6 +1,8 @@
 
 import { Track, Platform } from "@/data/tracks";
 import { getYouTubeTracksByMood } from "./youtubeService";
+import { toast } from "@/components/ui/sonner";
+import { User } from "firebase/auth";
 
 interface SpotifyTokenResponse {
   access_token: string;
@@ -37,7 +39,12 @@ export async function getSpotifyTracksByMood(mood: string, language: string = 'e
     gratitude: ['classical', 'world-music'],
     healing: ['meditation', 'nature'],
     hope: ['inspirational', 'gospel'],
-    forgiveness: ['classical', 'ambient']
+    forgiveness: ['classical', 'ambient'],
+    energy: ['edm', 'dance', 'workout'],
+    focus: ['instrumental', 'study', 'concentration'],
+    joy: ['pop', 'happy', 'upbeat'],
+    motivation: ['rock', 'power', 'motivation'],
+    reflection: ['chillout', 'acoustic', 'piano']
   };
 
   const languageToMarket: Record<string, string> = {
@@ -50,7 +57,12 @@ export async function getSpotifyTracksByMood(mood: string, language: string = 'e
     hi: 'IN',
     ja: 'JP',
     ko: 'KR',
-    zh: 'CN'
+    zh: 'CN',
+    ar: 'SA',
+    ru: 'RU',
+    nl: 'NL',
+    tr: 'TR',
+    sv: 'SE'
   };
 
   const genres = moodToGenre[mood] || ['ambient'];
@@ -89,8 +101,26 @@ function formatDuration(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-export async function getAllTracksByMood(mood: string, language: string = 'en'): Promise<Track[]> {
+export async function getAllTracksByMood(
+  mood: string, 
+  language: string = 'en', 
+  currentUser: User | null = null
+): Promise<Track[]> {
+  // Check if user is authenticated
+  if (!currentUser) {
+    toast.error("Please sign in to access music recommendations");
+    return [];
+  }
+  
   try {
+    // Deduct tokens when fetching music
+    const userTokensUpdated = await updateUserTokens(currentUser.uid, -10);
+    
+    if (!userTokensUpdated) {
+      toast.error("Insufficient tokens to play music");
+      return [];
+    }
+    
     const [spotifyTracks, youtubeTracks] = await Promise.all([
       getSpotifyTracksByMood(mood, language).catch(() => []),
       getYouTubeTracksByMood(mood, language).catch(() => [])
@@ -99,7 +129,62 @@ export async function getAllTracksByMood(mood: string, language: string = 'en'):
     return [...spotifyTracks, ...youtubeTracks];
   } catch (error) {
     console.error('Error fetching tracks:', error);
+    toast.error("Error loading music tracks. Please try again later.");
     return [];
   }
 }
 
+// Function to update user tokens in Firestore
+import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+export async function getUserTokens(userId: string): Promise<number> {
+  try {
+    const userRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
+      return userDoc.data().tokens || 0;
+    } else {
+      // Initialize tokens for new users
+      await setDoc(userRef, { tokens: 1000 }, { merge: true });
+      return 1000;
+    }
+  } catch (error) {
+    console.error("Error getting user tokens:", error);
+    return 0;
+  }
+}
+
+export async function updateUserTokens(userId: string, amount: number): Promise<boolean> {
+  try {
+    const userRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userRef);
+    
+    let currentTokens = 0;
+    
+    if (userDoc.exists()) {
+      currentTokens = userDoc.data().tokens || 0;
+    } else {
+      // Initialize tokens for new users
+      currentTokens = 1000;
+      await setDoc(userRef, { tokens: currentTokens }, { merge: true });
+    }
+    
+    // Check if user has enough tokens
+    if (currentTokens + amount < 0) {
+      toast.error("Not enough tokens remaining");
+      return false;
+    }
+    
+    // Update tokens
+    await updateDoc(userRef, {
+      tokens: currentTokens + amount
+    });
+    
+    return true;
+  } catch (error) {
+    console.error("Error updating user tokens:", error);
+    return false;
+  }
+}

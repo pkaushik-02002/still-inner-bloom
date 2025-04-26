@@ -3,9 +3,12 @@ import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { MoodSelector } from "@/components/MoodSelector";
 import { MusicPlayer } from "@/components/MusicPlayer";
-import { getAllTracksByMood } from "@/services/musicService";
+import { getAllTracksByMood, getUserTokens } from "@/services/musicService";
 import { Track } from "@/data/tracks";
 import { toast } from "@/components/ui/sonner";
+import { useAuth } from "@/context/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import {
   Select,
   SelectContent,
@@ -13,18 +16,44 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Shield, Volume2, Headphones } from "lucide-react";
 
 const Player = () => {
   const [currentMood, setCurrentMood] = useState("calm");
   const [currentLanguage, setCurrentLanguage] = useState("en");
   const [tracks, setTracks] = useState<Track[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [userTokens, setUserTokens] = useState<number | null>(null);
+  const { currentUser } = useAuth();
+  
+  // Fetch user tokens on component mount and when user changes
+  useEffect(() => {
+    const fetchTokens = async () => {
+      if (currentUser) {
+        try {
+          const tokens = await getUserTokens(currentUser.uid);
+          setUserTokens(tokens);
+        } catch (error) {
+          console.error("Error fetching user tokens:", error);
+        }
+      } else {
+        setUserTokens(null);
+      }
+    };
+    
+    fetchTokens();
+  }, [currentUser]);
   
   useEffect(() => {
     const fetchTracks = async () => {
       try {
         setIsLoading(true);
-        const fetchedTracks = await getAllTracksByMood(currentMood, currentLanguage);
+        if (!currentUser) {
+          setTracks([]);
+          return;
+        }
+        
+        const fetchedTracks = await getAllTracksByMood(currentMood, currentLanguage, currentUser);
         setTracks(fetchedTracks);
       } catch (error) {
         console.error('Error fetching tracks:', error);
@@ -35,7 +64,7 @@ const Player = () => {
     };
     
     fetchTracks();
-  }, [currentMood, currentLanguage]);
+  }, [currentMood, currentLanguage, currentUser]);
   
   const handleMoodSelect = (mood: string) => {
     setCurrentMood(mood);
@@ -75,16 +104,54 @@ const Player = () => {
                   <SelectItem value="ja">Japanese</SelectItem>
                   <SelectItem value="ko">Korean</SelectItem>
                   <SelectItem value="zh">Chinese</SelectItem>
+                  <SelectItem value="ar">Arabic</SelectItem>
+                  <SelectItem value="ru">Russian</SelectItem>
+                  <SelectItem value="nl">Dutch</SelectItem>
+                  <SelectItem value="tr">Turkish</SelectItem>
+                  <SelectItem value="sv">Swedish</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           
+          {currentUser ? (
+            <div className="mb-6 p-4 rounded-md bg-secondary/30 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <Headphones className="h-5 w-5 text-primary" />
+                <span>Music Token Balance: <strong>{userTokens}</strong></span>
+              </div>
+              <span className="text-sm text-muted-foreground">-10 tokens per search</span>
+            </div>
+          ) : null}
+
           <div className="flex justify-center">
-            {isLoading ? (
-              <div className="animate-pulse">Loading tracks...</div>
-            ) : (
+            {!currentUser ? (
+              <div className="still-card p-8 flex flex-col items-center gap-4">
+                <Shield className="h-12 w-12 text-muted-foreground opacity-60" />
+                <h3 className="text-xl font-medium">Authentication Required</h3>
+                <p className="text-center text-muted-foreground">
+                  Please sign in to access mood-based music recommendations.
+                </p>
+                <div className="flex gap-3 mt-2">
+                  <Button variant="outline" asChild>
+                    <Link to="/login">Sign In</Link>
+                  </Button>
+                  <Button asChild>
+                    <Link to="/register">Join Still</Link>
+                  </Button>
+                </div>
+              </div>
+            ) : isLoading ? (
+              <div className="animate-pulse flex flex-col items-center">
+                <Volume2 className="h-12 w-12 animate-pulse text-muted-foreground" />
+                <div className="mt-4">Loading tracks...</div>
+              </div>
+            ) : tracks.length > 0 ? (
               <MusicPlayer tracks={tracks} mood={currentMood} />
+            ) : (
+              <div className="text-center p-6">
+                <p>No tracks found for this mood and language. Try a different combination.</p>
+              </div>
             )}
           </div>
           
@@ -130,6 +197,41 @@ const Player = () => {
                 for yourself and others.
               </p>
             )}
+            
+            {currentMood === "energy" && (
+              <p className="text-muted-foreground">
+                Energy music revitalizes your body and mind with dynamic rhythms and upbeat tempos.
+                These tracks are designed to invigorate, motivate, and boost your physical and mental energy.
+              </p>
+            )}
+            
+            {currentMood === "focus" && (
+              <p className="text-muted-foreground">
+                Focus music enhances concentration and productivity. With consistent rhythms and minimal
+                distractions, these tracks help maintain attention and create an optimal environment for work or study.
+              </p>
+            )}
+            
+            {currentMood === "joy" && (
+              <p className="text-muted-foreground">
+                Joy music celebrates happiness and elevates your mood. These uplifting and playful
+                compositions encourage feelings of delight, pleasure, and pure enjoyment of the moment.
+              </p>
+            )}
+            
+            {currentMood === "motivation" && (
+              <p className="text-muted-foreground">
+                Motivation music inspires action and determination. With powerful progressions and
+                encouraging themes, these tracks help overcome inertia and fuel your drive toward goals.
+              </p>
+            )}
+            
+            {currentMood === "reflection" && (
+              <p className="text-muted-foreground">
+                Reflection music creates space for introspection and contemplation. These thoughtful
+                compositions support inner exploration and mindful awareness of your thoughts and feelings.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -138,4 +240,3 @@ const Player = () => {
 };
 
 export default Player;
-
