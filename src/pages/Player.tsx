@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { MoodSelector } from "@/components/MoodSelector";
 import { MusicPlayer } from "@/components/MusicPlayer";
-import { getTracksByMood } from "@/services/musicService";
+import { getAllTracksByMood } from "@/services/musicService";
 import { Track } from "@/data/tracks";
 import { toast } from "@/components/ui/sonner";
 import {
@@ -24,7 +24,7 @@ const Player = () => {
     const fetchTracks = async () => {
       try {
         setIsLoading(true);
-        const fetchedTracks = await getTracksByMood(currentMood, currentLanguage);
+        const fetchedTracks = await getAllTracksByMood(currentMood, currentLanguage);
         setTracks(fetchedTracks);
       } catch (error) {
         console.error('Error fetching tracks:', error);
@@ -138,3 +138,4 @@ const Player = () => {
 };
 
 export default Player;
+

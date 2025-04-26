@@ -1,3 +1,6 @@
+
+export type Platform = 'spotify' | 'youtube';
+
 export interface Track {
   id: string;
   title: string;
@@ -6,6 +9,7 @@ export interface Track {
   coverImage: string;
   duration: string;
   previewUrl?: string;
+  platform: Platform;
+  videoId?: string; // For YouTube videos
 }
 
-// Remove the tracksByMood object since we're now using dynamic data

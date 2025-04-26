@@ -1,5 +1,6 @@
 
-import { Track } from "@/data/tracks";
+import { Track, Platform } from "@/data/tracks";
+import { getYouTubeTracksByMood } from "./youtubeService";
 
 interface SpotifyTokenResponse {
   access_token: string;
@@ -28,10 +29,9 @@ export async function getSpotifyToken(): Promise<string> {
   return data.access_token;
 }
 
-export async function getTracksByMood(mood: string, language: string = 'en'): Promise<Track[]> {
+export async function getSpotifyTracksByMood(mood: string, language: string = 'en'): Promise<Track[]> {
   const token = await getSpotifyToken();
   
-  // Map moods to Spotify genres/seeds
   const moodToGenre: Record<string, string[]> = {
     calm: ['ambient', 'sleep', 'meditation'],
     gratitude: ['classical', 'world-music'],
@@ -40,7 +40,6 @@ export async function getTracksByMood(mood: string, language: string = 'en'): Pr
     forgiveness: ['classical', 'ambient']
   };
 
-  // Map languages to market codes
   const languageToMarket: Record<string, string> = {
     en: 'US',
     es: 'ES',
@@ -79,7 +78,8 @@ export async function getTracksByMood(mood: string, language: string = 'en'): Pr
     mood: mood,
     coverImage: track.album.images[0]?.url || '/placeholder.svg',
     duration: formatDuration(track.duration_ms),
-    previewUrl: track.preview_url
+    previewUrl: track.preview_url,
+    platform: 'spotify' as const
   }));
 }
 
@@ -88,3 +88,18 @@ function formatDuration(ms: number): string {
   const seconds = Math.floor((ms % 60000) / 1000);
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
+
+export async function getAllTracksByMood(mood: string, language: string = 'en'): Promise<Track[]> {
+  try {
+    const [spotifyTracks, youtubeTracks] = await Promise.all([
+      getSpotifyTracksByMood(mood, language).catch(() => []),
+      getYouTubeTracksByMood(mood, language).catch(() => [])
+    ]);
+
+    return [...spotifyTracks, ...youtubeTracks];
+  } catch (error) {
+    console.error('Error fetching tracks:', error);
+    return [];
+  }
+}
+

@@ -1,9 +1,11 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Play, Pause, SkipForward, SkipBack, Volume2 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Track } from "@/data/tracks";
 import { toast } from "@/components/ui/sonner";
+import YouTube from "react-youtube";
 
 interface MusicPlayerProps {
   tracks: Track[];
@@ -16,6 +18,7 @@ export function MusicPlayer({ tracks, mood = "calm" }: MusicPlayerProps) {
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState(80);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const youtubePlayerRef = useRef<any>(null);
   
   const currentTrack = tracks[currentTrackIndex];
 
@@ -28,62 +31,76 @@ export function MusicPlayer({ tracks, mood = "calm" }: MusicPlayerProps) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
+    if (youtubePlayerRef.current) {
+      youtubePlayerRef.current.stopVideo();
+    }
   }, [tracks]);
 
   useEffect(() => {
-    if (!currentTrack?.previewUrl) {
-      toast.error("No preview available for this track");
-      return;
+    if (currentTrack?.platform === 'spotify') {
+      if (!currentTrack?.previewUrl) {
+        toast.error("No preview available for this track");
+        return;
+      }
+
+      audioRef.current = new Audio(currentTrack.previewUrl);
+      audioRef.current.volume = volume / 100;
+
+      audioRef.current.addEventListener('timeupdate', () => {
+        if (audioRef.current) {
+          const percent = (audioRef.current.currentTime / audioRef.current.duration) * 100;
+          setProgress(percent);
+        }
+      });
+
+      audioRef.current.addEventListener('ended', () => {
+        setIsPlaying(false);
+        nextTrack();
+      });
+
+      return () => {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.src = '';
+        }
+      };
     }
-
-    // Create new audio element when track changes
-    audioRef.current = new Audio(currentTrack.previewUrl);
-    audioRef.current.volume = volume / 100;
-
-    // Update progress
-    audioRef.current.addEventListener('timeupdate', () => {
-      if (audioRef.current) {
-        const percent = (audioRef.current.currentTime / audioRef.current.duration) * 100;
-        setProgress(percent);
-      }
-    });
-
-    // Handle track ending
-    audioRef.current.addEventListener('ended', () => {
-      setIsPlaying(false);
-      nextTrack();
-    });
-
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-      }
-    };
   }, [currentTrackIndex, tracks]);
 
   const togglePlay = () => {
-    if (!currentTrack?.previewUrl) {
-      toast.error("No preview available for this track");
-      return;
+    if (currentTrack?.platform === 'spotify') {
+      if (!currentTrack?.previewUrl) {
+        toast.error("No preview available for this track");
+        return;
+      }
+
+      if (audioRef.current) {
+        if (isPlaying) {
+          audioRef.current.pause();
+        } else {
+          audioRef.current.play().catch(error => {
+            console.error('Playback failed:', error);
+            toast.error("Playback failed. Please try again.");
+          });
+        }
+      }
+    } else if (currentTrack?.platform === 'youtube' && youtubePlayerRef.current) {
+      if (isPlaying) {
+        youtubePlayerRef.current.pauseVideo();
+      } else {
+        youtubePlayerRef.current.playVideo();
+      }
     }
 
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play().catch(error => {
-          console.error('Playback failed:', error);
-          toast.error("Playback failed. Please try again.");
-        });
-      }
-      setIsPlaying(!isPlaying);
-    }
+    setIsPlaying(!isPlaying);
   };
   
   const nextTrack = () => {
     if (audioRef.current) {
       audioRef.current.pause();
+    }
+    if (youtubePlayerRef.current) {
+      youtubePlayerRef.current.stopVideo();
     }
     setCurrentTrackIndex((prev) => 
       prev === tracks.length - 1 ? 0 : prev + 1
@@ -96,6 +113,9 @@ export function MusicPlayer({ tracks, mood = "calm" }: MusicPlayerProps) {
     if (audioRef.current) {
       audioRef.current.pause();
     }
+    if (youtubePlayerRef.current) {
+      youtubePlayerRef.current.stopVideo();
+    }
     setCurrentTrackIndex((prev) => 
       prev === 0 ? tracks.length - 1 : prev - 1
     );
@@ -104,30 +124,72 @@ export function MusicPlayer({ tracks, mood = "calm" }: MusicPlayerProps) {
   };
   
   const updateProgress = (value: number[]) => {
-    if (audioRef.current) {
+    if (currentTrack?.platform === 'spotify' && audioRef.current) {
       const time = (value[0] / 100) * audioRef.current.duration;
       audioRef.current.currentTime = time;
+      setProgress(value[0]);
+    } else if (currentTrack?.platform === 'youtube' && youtubePlayerRef.current) {
+      const duration = youtubePlayerRef.current.getDuration();
+      const time = (value[0] / 100) * duration;
+      youtubePlayerRef.current.seekTo(time);
       setProgress(value[0]);
     }
   };
   
   const updateVolume = (value: number[]) => {
-    if (audioRef.current) {
+    if (currentTrack?.platform === 'spotify' && audioRef.current) {
       audioRef.current.volume = value[0] / 100;
+    } else if (currentTrack?.platform === 'youtube' && youtubePlayerRef.current) {
+      youtubePlayerRef.current.setVolume(value[0]);
     }
     setVolume(value[0]);
   };
-  
+
+  const onYouTubeReady = (event: any) => {
+    youtubePlayerRef.current = event.target;
+    youtubePlayerRef.current.setVolume(volume);
+  };
+
+  const onYouTubeStateChange = (event: any) => {
+    if (event.data === YouTube.PlayerState.ENDED) {
+      setIsPlaying(false);
+      nextTrack();
+    }
+  };
+
   return (
     <div className="still-card w-full max-w-md p-6">
       <div className="flex flex-col items-center">
-        <div 
-          className="h-48 w-48 rounded-lg bg-cover bg-center mb-6 shadow-md"
-          style={{ backgroundImage: `url(${currentTrack?.coverImage || "/placeholder.svg"})` }}
-        />
+        {currentTrack?.platform === 'youtube' ? (
+          <div className="h-48 w-48 rounded-lg overflow-hidden shadow-md">
+            <YouTube
+              videoId={currentTrack.videoId}
+              opts={{
+                height: '192',
+                width: '192',
+                playerVars: {
+                  autoplay: isPlaying ? 1 : 0,
+                  controls: 0,
+                  modestbranding: 1,
+                  rel: 0,
+                },
+              }}
+              onReady={onYouTubeReady}
+              onStateChange={onYouTubeStateChange}
+            />
+          </div>
+        ) : (
+          <div 
+            className="h-48 w-48 rounded-lg bg-cover bg-center mb-6 shadow-md"
+            style={{ backgroundImage: `url(${currentTrack?.coverImage || "/placeholder.svg"})` }}
+          />
+        )}
         
-        <h3 className="text-xl font-medium">{currentTrack?.title}</h3>
+        <h3 className="text-xl font-medium mt-4">{currentTrack?.title}</h3>
         <p className="text-muted-foreground">{currentTrack?.artist}</p>
+        <span className="text-xs text-muted-foreground mt-1">
+          {currentTrack?.platform === 'spotify' ? '🎵 Spotify' : '▶️ YouTube'}
+        </span>
         
         <div className="w-full mt-6 mb-4">
           <Slider 
@@ -181,8 +243,10 @@ export function MusicPlayer({ tracks, mood = "calm" }: MusicPlayerProps) {
   );
 }
 
-function formatTime(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.floor(seconds % 60);
-  return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+function formatTime(percent: number): string {
+  // Format time for progress display
+  const minutes = Math.floor((percent / 100) * 30 / 60);
+  const seconds = Math.floor((percent / 100) * 30 % 60);
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
+
