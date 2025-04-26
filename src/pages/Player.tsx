@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { MoodSelector } from "@/components/MoodSelector";
@@ -5,9 +6,17 @@ import { MusicPlayer } from "@/components/MusicPlayer";
 import { getTracksByMood } from "@/services/musicService";
 import { Track } from "@/data/tracks";
 import { toast } from "@/components/ui/sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const Player = () => {
   const [currentMood, setCurrentMood] = useState("calm");
+  const [currentLanguage, setCurrentLanguage] = useState("en");
   const [tracks, setTracks] = useState<Track[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -15,7 +24,7 @@ const Player = () => {
     const fetchTracks = async () => {
       try {
         setIsLoading(true);
-        const fetchedTracks = await getTracksByMood(currentMood);
+        const fetchedTracks = await getTracksByMood(currentMood, currentLanguage);
         setTracks(fetchedTracks);
       } catch (error) {
         console.error('Error fetching tracks:', error);
@@ -26,10 +35,14 @@ const Player = () => {
     };
     
     fetchTracks();
-  }, [currentMood]);
+  }, [currentMood, currentLanguage]);
   
   const handleMoodSelect = (mood: string) => {
     setCurrentMood(mood);
+  };
+
+  const handleLanguageChange = (language: string) => {
+    setCurrentLanguage(language);
   };
   
   return (
@@ -44,7 +57,27 @@ const Player = () => {
           </div>
           
           <div className="still-card p-6 mb-8">
-            <MoodSelector onSelect={handleMoodSelect} />
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+              <MoodSelector onSelect={handleMoodSelect} />
+              
+              <Select value={currentLanguage} onValueChange={handleLanguageChange}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select language" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="es">Spanish</SelectItem>
+                  <SelectItem value="fr">French</SelectItem>
+                  <SelectItem value="de">German</SelectItem>
+                  <SelectItem value="it">Italian</SelectItem>
+                  <SelectItem value="pt">Portuguese</SelectItem>
+                  <SelectItem value="hi">Hindi</SelectItem>
+                  <SelectItem value="ja">Japanese</SelectItem>
+                  <SelectItem value="ko">Korean</SelectItem>
+                  <SelectItem value="zh">Chinese</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           
           <div className="flex justify-center">

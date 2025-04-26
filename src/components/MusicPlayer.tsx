@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Play, Pause, SkipForward, SkipBack, Volume2 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ export function MusicPlayer({ tracks, mood = "calm" }: MusicPlayerProps) {
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState(80);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   const currentTrack = tracks[currentTrackIndex];
 
@@ -23,33 +24,97 @@ export function MusicPlayer({ tracks, mood = "calm" }: MusicPlayerProps) {
     setCurrentTrackIndex(0);
     setProgress(0);
     setIsPlaying(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
   }, [tracks]);
 
+  useEffect(() => {
+    if (!currentTrack?.previewUrl) {
+      toast.error("No preview available for this track");
+      return;
+    }
+
+    // Create new audio element when track changes
+    audioRef.current = new Audio(currentTrack.previewUrl);
+    audioRef.current.volume = volume / 100;
+
+    // Update progress
+    audioRef.current.addEventListener('timeupdate', () => {
+      if (audioRef.current) {
+        const percent = (audioRef.current.currentTime / audioRef.current.duration) * 100;
+        setProgress(percent);
+      }
+    });
+
+    // Handle track ending
+    audioRef.current.addEventListener('ended', () => {
+      setIsPlaying(false);
+      nextTrack();
+    });
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    };
+  }, [currentTrackIndex, tracks]);
+
   const togglePlay = () => {
-    setIsPlaying(!isPlaying);
-    // In a real implementation, this would trigger the actual audio playback
-    toast.info("Note: This is a demo player. Audio playback is not implemented.");
+    if (!currentTrack?.previewUrl) {
+      toast.error("No preview available for this track");
+      return;
+    }
+
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play().catch(error => {
+          console.error('Playback failed:', error);
+          toast.error("Playback failed. Please try again.");
+        });
+      }
+      setIsPlaying(!isPlaying);
+    }
   };
   
   const nextTrack = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
     setCurrentTrackIndex((prev) => 
       prev === tracks.length - 1 ? 0 : prev + 1
     );
     setProgress(0);
+    setIsPlaying(false);
   };
   
   const previousTrack = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
     setCurrentTrackIndex((prev) => 
       prev === 0 ? tracks.length - 1 : prev - 1
     );
     setProgress(0);
+    setIsPlaying(false);
   };
   
   const updateProgress = (value: number[]) => {
-    setProgress(value[0]);
+    if (audioRef.current) {
+      const time = (value[0] / 100) * audioRef.current.duration;
+      audioRef.current.currentTime = time;
+      setProgress(value[0]);
+    }
   };
   
   const updateVolume = (value: number[]) => {
+    if (audioRef.current) {
+      audioRef.current.volume = value[0] / 100;
+    }
     setVolume(value[0]);
   };
   

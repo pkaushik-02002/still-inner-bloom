@@ -20,32 +20,55 @@ export async function getSpotifyToken(): Promise<string> {
     body: 'grant_type=client_credentials',
   });
 
+  if (!response.ok) {
+    throw new Error('Failed to get Spotify token');
+  }
+
   const data: SpotifyTokenResponse = await response.json();
   return data.access_token;
 }
 
-export async function getTracksByMood(mood: string): Promise<Track[]> {
+export async function getTracksByMood(mood: string, language: string = 'en'): Promise<Track[]> {
   const token = await getSpotifyToken();
   
   // Map moods to Spotify genres/seeds
-  const moodToGenre: Record<string, string> = {
-    calm: 'ambient,sleep',
-    gratitude: 'classical,world-music',
-    healing: 'meditation,nature',
-    hope: 'inspirational,gospel',
-    forgiveness: 'classical,ambient'
+  const moodToGenre: Record<string, string[]> = {
+    calm: ['ambient', 'sleep', 'meditation'],
+    gratitude: ['classical', 'world-music'],
+    healing: ['meditation', 'nature'],
+    hope: ['inspirational', 'gospel'],
+    forgiveness: ['classical', 'ambient']
   };
 
-  const genre = moodToGenre[mood] || 'ambient';
+  // Map languages to market codes
+  const languageToMarket: Record<string, string> = {
+    en: 'US',
+    es: 'ES',
+    fr: 'FR',
+    de: 'DE',
+    it: 'IT',
+    pt: 'PT',
+    hi: 'IN',
+    ja: 'JP',
+    ko: 'KR',
+    zh: 'CN'
+  };
+
+  const genres = moodToGenre[mood] || ['ambient'];
+  const market = languageToMarket[language] || 'US';
   
   const response = await fetch(
-    `https://api.spotify.com/v1/recommendations?seed_genres=${genre}&limit=5`,
+    `https://api.spotify.com/v1/recommendations?seed_genres=${genres.join(',')}&limit=10&market=${market}`,
     {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     }
   );
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch tracks from Spotify');
+  }
 
   const data = await response.json();
   
@@ -54,8 +77,9 @@ export async function getTracksByMood(mood: string): Promise<Track[]> {
     title: track.name,
     artist: track.artists[0].name,
     mood: mood,
-    coverImage: track.album.images[0]?.url || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e',
-    duration: formatDuration(track.duration_ms)
+    coverImage: track.album.images[0]?.url || '/placeholder.svg',
+    duration: formatDuration(track.duration_ms),
+    previewUrl: track.preview_url
   }));
 }
 
@@ -64,4 +88,3 @@ function formatDuration(ms: number): string {
   const seconds = Math.floor((ms % 60000) / 1000);
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
-
