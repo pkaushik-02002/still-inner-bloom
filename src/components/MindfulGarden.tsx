@@ -1,63 +1,44 @@
-
 import { useState, useEffect } from "react";
-
-interface GardenItem {
-  id: string;
-  type: "flower" | "tree" | "plant";
-  x: number;
-  y: number;
-  size: number;
-  color: string;
-  growth: number; // 0-100
-}
+import { useAuth } from "@/context/AuthContext";
+import { GardenItem, getGardenItems } from "@/services/gardenService";
+import { useToast } from "@/components/ui/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function MindfulGarden() {
   const [gardenItems, setGardenItems] = useState<GardenItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { currentUser } = useAuth();
+  const { toast } = useToast();
   
-  // Simulating garden items for demonstration
   useEffect(() => {
-    // In a real app, these would come from user's completed missions
-    const demoItems: GardenItem[] = [
-      {
-        id: "flower1",
-        type: "flower",
-        x: 20,
-        y: 70,
-        size: 40,
-        color: "#D1DEBD", // sage
-        growth: 100
-      },
-      {
-        id: "tree1",
-        type: "tree",
-        x: 70,
-        y: 30,
-        size: 80,
-        color: "#A6C36F", // moss
-        growth: 90
-      },
-      {
-        id: "plant1",
-        type: "plant",
-        x: 40,
-        y: 50,
-        size: 35,
-        color: "#89CFF0", // water
-        growth: 75
-      },
-      {
-        id: "flower2",
-        type: "flower",
-        x: 80,
-        y: 80,
-        size: 30,
-        color: "#E6CCBE", // clay
-        growth: 80
-      }
-    ];
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
     
-    setGardenItems(demoItems);
-  }, []);
+    const unsubscribe = getGardenItems(currentUser.uid, (items) => {
+      setGardenItems(items);
+      setLoading(false);
+    });
+    
+    return () => unsubscribe();
+  }, [currentUser]);
+  
+  if (loading) {
+    return (
+      <div className="relative w-full h-96 still-card overflow-hidden">
+        <Skeleton className="h-full w-full" />
+      </div>
+    );
+  }
+  
+  if (!currentUser) {
+    return (
+      <div className="relative w-full h-96 still-card overflow-hidden flex items-center justify-center">
+        <p className="text-muted-foreground">Please sign in to view your garden</p>
+      </div>
+    );
+  }
   
   return (
     <div className="relative w-full h-96 still-card overflow-hidden">
@@ -95,7 +76,7 @@ export function MindfulGarden() {
       
       {gardenItems.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <p className="text-muted-foreground">Your garden is waiting to bloom. Complete missions to grow your garden.</p>
+          <p className="text-muted-foreground">Complete missions to grow your garden. Each mission adds a new plant!</p>
         </div>
       )}
     </div>
