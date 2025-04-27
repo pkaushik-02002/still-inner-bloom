@@ -1,12 +1,15 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { GardenItem, getGardenItems } from "@/services/gardenService";
 import { useToast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AlertCircle } from "lucide-react";
 
 export function MindfulGarden() {
   const [gardenItems, setGardenItems] = useState<GardenItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { currentUser } = useAuth();
   const { toast } = useToast();
   
@@ -16,18 +19,49 @@ export function MindfulGarden() {
       return;
     }
     
-    const unsubscribe = getGardenItems(currentUser.uid, (items) => {
-      setGardenItems(items);
-      setLoading(false);
-    });
+    setLoading(true);
+    setError(null);
     
-    return () => unsubscribe();
-  }, [currentUser]);
+    try {
+      const unsubscribe = getGardenItems(currentUser.uid, (items) => {
+        setGardenItems(items);
+        setLoading(false);
+      });
+      
+      return () => {
+        unsubscribe();
+      };
+    } catch (err) {
+      console.error("Error in MindfulGarden:", err);
+      setError("Failed to load garden data. Please try again later.");
+      setLoading(false);
+      
+      toast({
+        title: "Garden Error",
+        description: "Couldn't load your garden. Please refresh the page.",
+        variant: "destructive",
+      });
+      
+      return () => {};
+    }
+  }, [currentUser, toast]);
   
   if (loading) {
     return (
       <div className="relative w-full h-96 still-card overflow-hidden">
         <Skeleton className="h-full w-full" />
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="relative w-full h-96 still-card overflow-hidden flex items-center justify-center">
+        <div className="text-center p-6">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <p className="text-red-500 font-medium">Error loading garden</p>
+          <p className="text-muted-foreground mt-2">{error}</p>
+        </div>
       </div>
     );
   }
@@ -76,7 +110,7 @@ export function MindfulGarden() {
       
       {gardenItems.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <p className="text-muted-foreground">Complete missions to grow your garden. Each mission adds a new plant!</p>
+          <p className="text-muted-foreground px-4 text-center">Complete missions to grow your garden. Each mission adds a new plant!</p>
         </div>
       )}
     </div>
@@ -84,7 +118,7 @@ export function MindfulGarden() {
 }
 
 function renderGardenItem(item: GardenItem) {
-  const scale = item.growth / 100;
+  const scale = Math.max(0.1, (item.growth / 100) || 0.4);
   
   switch (item.type) {
     case "flower":
