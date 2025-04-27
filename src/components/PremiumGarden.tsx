@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { GardenItem, addGardenItem } from "@/services/gardenService";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { Tree, Flower2, TreePalm } from "lucide-react";
+import { TreePine, Flower2, TreePalm } from "lucide-react";
 
 export function PremiumGarden() {
   const [selectedPlant, setSelectedPlant] = useState<"tree" | "flower" | "plant" | null>(null);
@@ -45,7 +45,7 @@ export function PremiumGarden() {
           }`}
           onClick={() => handlePlantSelect("tree")}
         >
-          <Tree className="w-8 h-8 mb-2" />
+          <TreePine className="w-8 h-8 mb-2" />
           <span>Tree</span>
         </Button>
         
@@ -82,3 +82,4 @@ export function PremiumGarden() {
     </div>
   );
 }
+
