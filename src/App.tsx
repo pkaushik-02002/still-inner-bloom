@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,6 +13,7 @@ import Journal from "./pages/Journal";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
+import PremiumGardenPage from "./pages/PremiumGarden";
 
 // Initialize Firebase app
 app;
@@ -35,6 +35,7 @@ const App = () => (
             <Route path="/journal" element={<Journal />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/premium-garden" element={<PremiumGardenPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
